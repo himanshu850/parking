@@ -25,20 +25,32 @@
 						<th>Status</th>
 						<th>From</th>
 						<th>To</th>
+						<th>Action</th>
 
 		<tbody>
 <?php
 	$conn = mysqli_connect("localhost", "root", "", "parking");
-		$idd = $_SESSION['user']['UserID'];
+
+	// Determine user id from session (support different column/key names)
+	$idd = null;
+	if (isset($_SESSION['user']['userID'])) {
+		$idd = intval($_SESSION['user']['userID']);
+	} elseif (isset($_SESSION['user']['id'])) {
+		$idd = intval($_SESSION['user']['id']);
+	} elseif (isset($_SESSION['user']['UserID'])) {
+		$idd = intval($_SESSION['user']['UserID']);
+	}
+
+	if (empty($idd)) {
+		echo "<tr><td colspan=6 class=\"text-center\">No bookings (not logged in or no user id)</td></tr>";
+	} else {
 		$sql3 = "SELECT * FROM sticker WHERE userNo='$idd'";
 		$result = $conn->query($sql3);
-	$sql4 = "SELECT * FROM bookings JOIN parking_slot  Ps ON bookings.slot= Ps.SlotID WHERE useri=$idd";
-	//$sql3 = "SELECT * FROM bookings";
-	//$result3 = $conn->query($sql3);
-	$result = $conn->query($sql4);
-	if ( $result) {
-		 while($rec = $result->fetch_assoc() ) {
-			 
+		$sql4 = "SELECT * FROM bookings JOIN parking_slot Ps ON bookings.slot = Ps.SlotID WHERE useri=$idd";
+		$result = $conn->query($sql4);
+		if ($result) {
+			 while($rec = $result->fetch_assoc() ) {
+
 				$SlotID= $rec['slot'];
 				 $Location=$rec['LocationID'];
 				 $time=$rec['start'];
@@ -50,17 +62,18 @@
 				 <td>Active</td>
 				 <td>$time</td>
 				 <td>2019-11-26 5:30:00pm</td>
+				 <td><a class=\"btn btn-sm btn-danger\" href=\"unbook.php?slot_id=$SlotID\" onclick=\"return confirm('Are you sure you want to unbook this slot?');\">Unbook</a></td>
 			 </tr>
 
 				 ";
 			}
 
-		}
-		else{
+		} else {
 			echo $conn->error;
 		}
+	}
 
-		?>
+	?>
 		
 	</tbody>	
 </table>

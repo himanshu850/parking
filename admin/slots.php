@@ -88,18 +88,34 @@
 function getPostAuthorById($user_id)
 {
 	global $conn;
-	$sql = "SELECT username FROM users WHERE id=$user_id";
-	$result = mysqli_query($conn, $sql);
-	if ($result) {
-		// return username
-		return mysqli_fetch_assoc($result)['username'];
-	} else {
-		return null;
+	if (empty($user_id)) return null;
+	// detect users primary key column
+	$cols_res = mysqli_query($conn, "SHOW COLUMNS FROM users");
+	$pk = null;
+	if ($cols_res) {
+		while ($c = mysqli_fetch_assoc($cols_res)) {
+			if ($c['Field'] === 'userID') { $pk = 'userID'; break; }
+			if ($c['Field'] === 'id') { $pk = 'id'; break; }
+		}
 	}
+	if (!$pk) return null;
+	$user_id_int = intval($user_id);
+	$sql = "SELECT username FROM users WHERE `$pk` = $user_id_int LIMIT 1";
+	$result = mysqli_query($conn, $sql);
+	if ($result && mysqli_num_rows($result) > 0) {
+		return mysqli_fetch_assoc($result)['username'];
+	}
+	return null;
 }
 	$final_posts = array();
 	foreach ($posts as $post) {
-		$post['Guard'] = getPostAuthorById($post['SlotID']);
+		// try to find a user id field in the post row; parking_slot doesn't include a user id by default
+		$possible_keys = ['userID','userId','useri','user','GuardID','guard_id'];
+		$uid = null;
+		foreach ($possible_keys as $k) {
+			if (isset($post[$k]) && !empty($post[$k])) { $uid = $post[$k]; break; }
+		}
+		$post['Guard'] = $uid ? getPostAuthorById($uid) : null;
 		array_push($final_posts, $post);
 	}
 }
@@ -144,10 +160,17 @@ else{
 
 							echo $Location; ?></td>
 							<td>
-								<a 	target="_blank"
-								href="<?php echo BASE_URL . 'single_post.php?post-slug=' . $post['slug'] ?>">
-									<?php echo $Status[$key]; ?>
-								</a>
+								<?php
+								// Safely build a link if a slug exists for this post; otherwise show status as plain text
+								$slug = isset($post['slug']) && !empty($post['slug']) ? urlencode($post['slug']) : '';
+								$status_label = htmlspecialchars($Status[$key] ?? '', ENT_QUOTES, 'UTF-8');
+								if ($slug !== ''):
+									$href = htmlspecialchars(BASE_URL . 'single_post.php?post-slug=' . $slug, ENT_QUOTES, 'UTF-8');
+									echo "<a target=\"_blank\" href=\"{$href}\">{$status_label}</a>";
+								else:
+									echo $status_label;
+								endif;
+								?>
 							</td>
 
 
